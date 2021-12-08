@@ -21,6 +21,7 @@ class Server:
 
             data_From_Client = client_Server_Socket.recv(1024).decode()
             print(str(array[0]) +":"+str(array[1]) + " wrote: " +data_From_Client)  # TODO Store data in user   #TODO Send stored data
+            # TODO (Maybe) Inputvalidation for log in data
 
     def main_loop(self):
 
