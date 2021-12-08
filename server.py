@@ -13,6 +13,8 @@ class Server:
 
 
 
+
+
     def client_connect(self, client_Server_Socket,array):  # TODO give GO! for user Information # TODO Log in User
         while True:
             data_From_Client = client_Server_Socket.recv(1024).decode()
