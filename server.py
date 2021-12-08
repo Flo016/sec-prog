@@ -10,7 +10,7 @@ class Server:
         self.server_Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.main_loop()
 
-
+    #Haha
 
 
     def client_connect(self, client_Server_Socket,array):  # TODO give GO! for user Information # TODO Log in User
