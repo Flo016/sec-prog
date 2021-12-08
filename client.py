@@ -8,7 +8,7 @@ class client:
 
     clientSocket.connect(("127.0.0.1", 600))   # TODO use secure socket
 
-
+    #AHHAA
     while True:
 
         userMessage = input("Please write your message :)  :") # TODO (Maybe) Inputvalidation
