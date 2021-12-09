@@ -73,7 +73,9 @@ class Server:
         client_server_socket.send("Username?".encode())  # TODO Check if Username already exists; Change String - "automated process"
         print("Hallo1")
         username_from_client = client_server_socket.recv(1024).decode()
+
         client_server_socket.send("Password?".encode())
+        print(username_from_client)
         password_from_client = client_server_socket.recv(1024).decode()
         user_file_name = "login_data_" + username_from_client + ".txt"
 
@@ -87,7 +89,9 @@ class Server:
                 #public_key_from_client = client_server_socket.recv(1024).decode()
 
                 """ Create new file if it doesn´t exist """
-                login_data = open(user_file_name, "w")  # TODO Check Program privileges
+                print(user_file_name)
+                print(user_file_name)
+                login_data = open('{}.txt'.format(user_file_name), "w")  # TODO Check Program privileges
                 login_data.write(password_from_client)  # TODO Implement public key for RSA Encryption
 
 
@@ -95,7 +99,7 @@ class Server:
                 return True
             else:
                 try:
-                    login_data = open(user_file_name, 'r')
+                    login_data = open('{}.txt'.format(user_file_name), 'r')
                     password = login_data.readlines()
 
                     if password[0] == password_from_client:

@@ -23,8 +23,8 @@ class Client:
             """If log in data exists, try to log in with it"""
             with open("client_login_data.txt", 'r') as user_login:
                 self.client_socket.send("no".encode())
-                lines = user_login.readlines()  # [0] = Username [1] = Password
-                print(lines[0])
+                line = user_login.read()
+                lines = line.split(',')
                 self.client_socket.recv(1024).decode()
                 self.client_socket.send(lines[0].encode())  # send username
                 self.client_socket.recv(1024).decode()  # wait for "send password"
@@ -38,14 +38,13 @@ class Client:
             username = input("No login data found - Please select a Username:")
 
             with open("client_login_data.txt", 'w') as user_login:
-                user_login.write(username+"\n")
 
                 """Create a new Password"""
                 possible_symbols = "#$%&()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~"
                 password = ''
                 for i in range(30):
                     password = password + secrets.choice(possible_symbols)
-                user_login.write(password + '\n')
+                user_login.write(username +"," + password)
 
                 """ public_key, private_key = rsa.newkeys(512) #TODO Secure Private key in safe file
                 user_login.write(public_key+"\n")
