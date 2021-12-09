@@ -15,7 +15,9 @@ class Server:
 
 
 
-    def client_connect(self, client_Server_Socket,array):  # TODO give GO! for user Information # TODO Log in User
+    def client_connect(self, client_Server_Socket,array): #client_Server_Socket: Socket Object; array: [Client_IP; Client_Port]
+        # TODO give GO! for user Information # TODO Log in User
+
         """ Wait for messages, one per loop cycle"""
         while True:
 
