@@ -1,30 +1,37 @@
 import socket
 import threading
 from random import randrange
-
+import time
+import datetime
 
 
 class Server:
+    """create variables for Server"""
 
-    #create variables for Server
     def __init__(self):
-        self.server_Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        """Create socket object"""
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        "Wait for connections and handle them"
         self.main_loop()
 
-    def client_connect(self, client_server_socket,array):  # client_Server_Socket: Socket Object; array: [Client_IP; Client_Port]
+    def client_connect(self, client_server_socket):  # client_Server_Socket: Socket Object; array: [Client_IP; Client_Port]
         # TODO give GO! for user Information
         """User logs in"""
-        if self.log_in_request(client_server_socket):  # TODO Send stored public key
+        login_data = self.log_in_request(client_server_socket)  # [Username;Login Successful/Unsuccessful]
+        current_user = login_data[0]
+        print(current_user)
+        if login_data[1]:  # TODO Send stored public key
             while True:
                 print("stuff successful")
                 command = client_server_socket.recv(1024).decode()
-
                 if command == "message":
-                    self.user_message()
+                    self.user_message(client_server_socket, current_user)
+                elif command == "receive":
+                    self.collect_message(client_server_socket, current_user)
+                    continue
 
-
-        else:  # Userpassword false
-            client_server_socket.close
+        else:  # User password false
+            client_server_socket.close()
             return
 
     def main_loop(self):
@@ -46,11 +53,9 @@ class Server:
                 array.append(item)
 
             """ Give Thread to Client and initialize communication"""
-            thread_1 = threading.Thread(target=self.client_connect, args=(client_connected, array,))
+            thread_1 = threading.Thread(target=self.client_connect, args=(client_connected,))
             thread_1.start()
             print("Accepted connection from " + str(array[0]) + ":" + str(array[1]))
-
-
 
     def log_in_request(self, client_server_socket):
         # TODO MAC for yes and no
@@ -68,32 +73,30 @@ class Server:
 
         while True:
             if createAccount == "yes":
-                self.create_account(client_server_socket, username_from_client, password_from_client)
-                return True
-
+                return self.create_account(client_server_socket, username_from_client, password_from_client)
             else:
                 try:
-                    # file consist of: ("Password, Salt, (Message, Sender)*")
+                    # file consist of: ("Password; Salt; [Timestamp, Sender, Message]*")
                     login_data = open('{}.txt'.format(username_from_client), 'r')
-
                     # data = login_data.read()
                     # data = data.split(', ')
                     # password = data[0]
 
                     # TODO ask which way you want it to be
 
-                    password = login_data.read().split(', ')[0]
+                    password = login_data.read().split(';')[0]
 
                     if password == password_from_client:
-                        client_server_socket.send("success")
-                        return True  # Log in success
+                        client_server_socket.send("success".encode())
+                        return [username_from_client, True]  # Log in success
                     else:
+
                         client_server_socket.send("ERROR: Wrong Password, please try again".encode())
                         """Can only be false, if client data has been manipulated, therefore we close connection"""
-                        return False
+                        return [username_from_client, False]
                 except:
                     client_server_socket.send("no login data found, creating new account".encode())
-                    data_from_client = "yes"
+                    createAccount = "yes"
 
     def create_account(self, client_server_socket, username_from_client, password_from_client):
         # TODO Implement safe passwords with salt (maybe pepper)
@@ -122,30 +125,47 @@ class Server:
                     """ Create new file if username+ID doesn't exist 
                     file consist of: ("Password, Salt, (Message, Sender)*") """
                     client_server_socket.send(("Your Username is: {}".format(actualUsername)).encode())
+                    client_server_socket.recv(1024)
+                    client_server_socket.send(actualUsername.encode())
                     login_data = open('{}.txt'.format(actualUsername), "w")
                     login_data.write(password_from_client)
                     login_data.close()
-                    return True
-                return True
+                    return [actualUsername, True]
+
             """If Username exists 10000 times already, use another Username"""
             client_server_socket.send(("Username unavailable. Please select another Username".encode()))
             username_from_client = client_server_socket.recv(1024).decode()
 
-
-
-    def user_message(self, client_server_socket):
-        client_server_socket.send("go").encode()
+    def user_message(self, client_server_socket, sender):
+        """Send go and wait for the message, create a message array with send_time, sender and message"""
+        client_server_socket.send("go".encode())
         recipient = client_server_socket.recv(1024).decode()
         try:
-            # check if file exists; file consist of: ("Password, Salt, (Message, Sender)*")
-            file = open("{name}.txt".format(name=recipient), "r")
-            file.close()
-            user_file = open("{name}.txt".format(name=recipient), "w")
+            # check if file exists; file consist of: ("Password; Salt; [Timestamp, Sender, Message]*")
+            user_file = open("{name}.txt".format(name=recipient), "a")
             client_server_socket.send("send message".encode())
             message = client_server_socket.recv(1024).decode()
-            user_file.write("")
-            user_file.write("," + message)
+            # take timestamp
+            time_stamp = time.time()
+            send_time = datetime.datetime.fromtimestamp(time_stamp).strftime('%d-%m-%Y %H:%M')
+            # create message array
+            message = [send_time, sender, message]
+            user_file.write(";" + str(message))
+
             user_file.close()
             client_server_socket.send("end message".encode())
         except:
-            print("excption")
+            print("exception")
+
+    def collect_message(self, client_server_socket, username):
+        """Prepare messages to be sent, store sensitive data and reset the file """
+        with open("{name}.txt".format(name=username), "r") as text_data:
+            file_data = text_data.read().split(";")
+            sensitive_data = file_data[0]
+            """send each message one by one"""
+            for i in range(1, len(file_data)):
+                client_server_socket.send(file_data[i].encode())
+                client_server_socket.recv(1024)
+        with open("{name}.txt".format(name=username), "w") as text_data:
+            text_data.write(sensitive_data)
+            client_server_socket.send("end_of_messages".encode())
