@@ -27,7 +27,7 @@ class Server:
                 if command == "message":
                     self.user_message(client_server_socket, current_user)
                 elif command == "receive":
-                    self.collect_message(client_server_socket, current_user)
+                    self.collect_messages(client_server_socket, current_user)
                     continue
 
         else:  # User password false
@@ -157,7 +157,7 @@ class Server:
         except:
             print("exception")
 
-    def collect_message(self, client_server_socket, username):
+    def collect_messages(self, client_server_socket, username):
         """Prepare messages to be sent, store sensitive data and reset the file """
         with open("{name}.txt".format(name=username), "r") as text_data:
             file_data = text_data.read().split(";")

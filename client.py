@@ -84,6 +84,7 @@ class Client:
         self.client_socket.recv(1024)  # wait for server confirmation before issuing next command
 
     def receive_message(self):
+        # TODO Handle empty request (No messages to receive)
         """issue receive, then collect all messages until the "end of messages" command"""
         messages = []  # ["success","message1","message2",...,"end of connection]
 
