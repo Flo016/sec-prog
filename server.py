@@ -1,6 +1,6 @@
 import socket
 import threading
-from random import randrange
+#  from random import randrange
 import time
 import datetime
 
@@ -78,13 +78,10 @@ class Server:
                 try:
                     # file consist of: ("Password; Salt; [Timestamp, Sender, Message]*")
                     login_data = open('{}.txt'.format(username_from_client), 'r')
-                    # data = login_data.read()
-                    # data = data.split(', ')
-                    # password = data[0]
 
                     # TODO ask which way you want it to be
 
-                    password = login_data.read().split(';')[0]
+                    password = login_data.read().split(';')[0]   # read 0th element contained in the file
 
                     if password == password_from_client:
                         client_server_socket.send("success".encode())
@@ -94,19 +91,20 @@ class Server:
                         client_server_socket.send("ERROR: Wrong Password, please try again".encode())
                         """Can only be false, if client data has been manipulated, therefore we close connection"""
                         return [username_from_client, False]
-                except:
+                except Exception:
                     client_server_socket.send("no login data found, creating new account".encode())
                     createAccount = "yes"
 
-    def create_account(self, client_server_socket, username_from_client, password_from_client):
+    @staticmethod
+    def create_account(client_server_socket, username_from_client, password_from_client):
         # TODO Implement safe passwords with salt (maybe pepper)
         # TODO Implement public key for RSA Encryption
         # TODO Check Program privileges
         while True:
             # client_server_socket.send("Public key?")
             # public_key_from_client = client_server_socket.recv(1024).decode()
-
-            """Give Username a random ID and check if ID already exists, if it does, create a new one and repeat"""
+            """
+            Give Username a random ID and check if ID already exists, if it does, create a new one and repeat
             idArray = []
             # ID = ID.append(randrange(0, 9))  # TODO ASK IF THIS SHOULD BE A SECURE RANDOM SOURCE
             for i in range(0, 10000):
@@ -120,23 +118,28 @@ class Server:
                     open('{}.txt'.format(actualUsername), 'r')
                     del idArray[:index]
                     continue
+            """
+            actualUsername = username_from_client
+            try:
+                open('{}.txt'.format(actualUsername), 'r')
 
-                except:
-                    """ Create new file if username+ID doesn't exist 
-                    file consist of: ("Password, Salt, (Message, Sender)*") """
-                    client_server_socket.send(("Your Username is: {}".format(actualUsername)).encode())
-                    client_server_socket.recv(1024)
-                    client_server_socket.send(actualUsername.encode())
-                    login_data = open('{}.txt'.format(actualUsername), "w")
-                    login_data.write(password_from_client)
-                    login_data.close()
-                    return [actualUsername, True]
+            except Exception:
+                """ Create new file if username+ID doesn't exist 
+                file consist of: ("Password, Salt, (Message, Sender)*") """
+                client_server_socket.send(("Your Username is: {}".format(actualUsername)).encode())
+                client_server_socket.recv(1024)
+                client_server_socket.send(actualUsername.encode())
+                login_data = open('{}.txt'.format(actualUsername), "w")
+                login_data.write(password_from_client)
+                login_data.close()
+                return [actualUsername, True]
 
             """If Username exists 10000 times already, use another Username"""
             client_server_socket.send(("Username unavailable. Please select another Username".encode()))
             username_from_client = client_server_socket.recv(1024).decode()
 
-    def user_message(self, client_server_socket, sender):
+    @staticmethod
+    def user_message(client_server_socket, sender):
         """Send go and wait for the message, create a message array with send_time, sender and message"""
         client_server_socket.send("go".encode())
         recipient = client_server_socket.recv(1024).decode()
@@ -154,18 +157,22 @@ class Server:
 
             user_file.close()
             client_server_socket.send("end message".encode())
-        except:
-            print("exception")
+        except Exception:
+            print("Username doesn't exist")   # TODO delete this statement
 
-    def collect_messages(self, client_server_socket, username):
+    @staticmethod
+    def collect_messages(client_server_socket, username):
         """Prepare messages to be sent, store sensitive data and reset the file """
         with open("{name}.txt".format(name=username), "r") as text_data:
             file_data = text_data.read().split(";")
             sensitive_data = file_data[0]
             """send each message one by one"""
-            for i in range(1, len(file_data)):
-                client_server_socket.send(file_data[i].encode())
-                client_server_socket.recv(1024)
+            try:
+                for i in range(1, len(file_data)):
+                    client_server_socket.send(file_data[i].encode())
+                    client_server_socket.recv(1024)
+            except Exception:
+                client_server_socket.send("Keine neuen Nachrichten.".encode())
         with open("{name}.txt".format(name=username), "w") as text_data:
             text_data.write(sensitive_data)
             client_server_socket.send("end_of_messages".encode())
