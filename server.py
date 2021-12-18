@@ -167,7 +167,7 @@ class Server:
             file_data = text_data.read().split(";")
             sensitive_data = file_data[0]
             """send each message one by one"""
-            if len(file_data) > 2:
+            if len(file_data) > 1:
                 for i in range(1, len(file_data)):
                     client_server_socket.send(file_data[i].encode())
                     client_server_socket.recv(1024)
