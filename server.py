@@ -14,7 +14,8 @@ class Server:
         "Wait for connections and handle them"
         self.main_loop()
 
-    def client_connect(self, client_server_socket):  # client_Server_Socket: Socket Object; array: [Client_IP; Client_Port]
+    def client_connect(self,
+                       client_server_socket):  # client_Server_Socket: Socket Object; array: [Client_IP; Client_Port]
         # TODO give GO! for user Information
         """User logs in"""
         login_data = self.log_in_request(client_server_socket)  # [Username;Login Successful/Unsuccessful]
@@ -28,7 +29,7 @@ class Server:
                     self.user_message(client_server_socket, current_user)
                 elif command == "receive":
                     self.collect_messages(client_server_socket, current_user)
-                    
+
 
         else:  # User password false
             client_server_socket.close()
@@ -81,7 +82,7 @@ class Server:
 
                     # TODO ask which way you want it to be
 
-                    password = login_data.read().split(';')[0]   # read 0th element contained in the file
+                    password = login_data.read().split(';')[0]  # read 0th element contained in the file
 
                     if password == password_from_client:
                         client_server_socket.send("success".encode())
@@ -109,7 +110,6 @@ class Server:
             # ID = ID.append(randrange(0, 9))  # TODO ASK IF THIS SHOULD BE A SECURE RANDOM SOURCE
             for i in range(0, 10000):
                 idArray.append('{:d}'.format(i).zfill(4))  # create array form 0000-9999
-
             for idArrayLimit in range(9999, -1, -1):
                 index = randrange(0, idArrayLimit)
                 userID = idArray[index]
@@ -158,7 +158,7 @@ class Server:
             user_file.close()
             client_server_socket.send("end message".encode())
         except Exception:
-            print("Username doesn't exist")   # TODO delete this statement
+            print("Username doesn't exist")  # TODO delete this statement
 
     @staticmethod
     def collect_messages(client_server_socket, username):
@@ -167,12 +167,14 @@ class Server:
             file_data = text_data.read().split(";")
             sensitive_data = file_data[0]
             """send each message one by one"""
-            try:
+            if len(file_data) > 2:
                 for i in range(1, len(file_data)):
                     client_server_socket.send(file_data[i].encode())
                     client_server_socket.recv(1024)
-            except Exception:
+            else:
                 client_server_socket.send("Keine neuen Nachrichten.".encode())
+                return True
         with open("{name}.txt".format(name=username), "w") as text_data:
             text_data.write(sensitive_data)
             client_server_socket.send("end_of_messages".encode())
+            return True
