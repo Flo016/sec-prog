@@ -28,7 +28,7 @@ class Server:
                     self.user_message(client_server_socket, current_user)
                 elif command == "receive":
                     self.collect_messages(client_server_socket, current_user)
-                    continue
+                    
 
         else:  # User password false
             client_server_socket.close()
