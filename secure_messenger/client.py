@@ -18,6 +18,8 @@ class Client:
                 self.write_message()
             elif command == "2" or command == "read":
                 self.receive_message()
+            elif command == "3" or command == "close":
+                exit(0)
 
 
     def user_login(self):
