@@ -1,6 +1,6 @@
 import socket
 import threading
-#  from random import randrange
+from random import randrange
 import time
 import datetime
 
@@ -104,8 +104,9 @@ class Server:
         while True:
             # client_server_socket.send("Public key?")
             # public_key_from_client = client_server_socket.recv(1024).decode()
-            """
-            Give Username a random ID and check if ID already exists, if it does, create a new one and repeat
+
+
+            """Give Username a random ID and check if ID already exists, if it does, create a new one and repeat
             idArray = []
             # ID = ID.append(randrange(0, 9))  # TODO ASK IF THIS SHOULD BE A SECURE RANDOM SOURCE
             for i in range(0, 10000):
@@ -119,6 +120,8 @@ class Server:
                     del idArray[:index]
                     continue
             """
+
+
             actualUsername = username_from_client
             try:
                 open('{}.txt'.format(actualUsername), 'r')
