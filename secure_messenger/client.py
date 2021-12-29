@@ -1,3 +1,4 @@
+import re
 import socket
 import rsa
 import secrets  # TODO maybe explain why this library?
@@ -58,7 +59,15 @@ class Client:
     def create_account(self):
         """If log in data doesn't exist, create a new account"""
         self.send_encrypted_authenticated("yes")
-        username = input("No login data found - Please select a Username:")
+        message = "no login data found, please select a Username.\n" \
+                  "Your username can be 3 - 10 characters long and contain \n" \
+                  "numbers, ASCII letters and these special characters: . _ -  \n" \
+                  "Username: "
+        while True:
+            username = input(message)
+            if re.fullmatch('([A-Za-z0-9]|[._-]){3,10}', username):
+                break
+            message = "invalid username, please select another one."
 
         print("Creating Password...")
         """Create a new Password"""
@@ -88,7 +97,13 @@ class Client:
         """issue message command, send receipient, send actuall message, """
         self.send_encrypted_authenticated("message")
 
-        user = input("Which user should receive this message? (you have to write UserID too)")
+        user = input("Which user should receive this message? (example: lmao#0550 )")
+        while True:
+            if not re.fullmatch('([A-Za-z0-9]|[._-]){3,10}#[0-9]{4}', user):
+                user = input("Invalid Username syntax. Please provide a possible username.")
+                continue
+            break
+
         self.send_encrypted_authenticated(user)
         key_material = self.receive_encrypted_authenticated(3000)   # receive recipient Public key
         key_material = literal_eval(key_material)
@@ -106,14 +121,23 @@ class Client:
 
         """generate message, encrypt with symmetric key and IV, encrypt symmetric key and IV with public key"""
 
-        message = input("What do you want to tell " + user + "?")
+        message = input("What do you want to tell " + user + "? (messages can only be 1024 characters long)\n"
+                        "Message: ")
+        while True:
+            print(len(message))
+            if len(message) > 1024:
+                message = input("Your message was too long, please send a shorter one, or write two messages.\n"
+                                "Message:")
+                continue
+            break
+
         message = cipher.encrypt(pad(message.encode(), AES.block_size))
+
         """combine message and encrypted keypair and send"""
         symmetrical_key_pair = str(int.from_bytes(key, 'big')) + ';' + str(int.from_bytes(IV, 'big'))
         symmetrical_key_pair = rsa.encrypt(symmetrical_key_pair.encode(), public_key)
         message = str(int.from_bytes(message, 'big')) + ',' + str(int.from_bytes(symmetrical_key_pair, 'big'))
         self.send_encrypted_authenticated(message)
-
 
     def receive_message(self):
         """issue receive, then collect all messages until the "end of messages" command"""
@@ -164,7 +188,8 @@ class Client:
 
             print("\n")
 
-    def create_Asymmetric_key(self):
+    @staticmethod
+    def create_Asymmetric_key():
         """Try to read keypair, if impossible create new keypair"""
         try:
             test = open("client_login_data.txt", 'r')
@@ -280,5 +305,3 @@ class Client:
         message = unpad(cipher.decrypt(eventual_message), AES.block_size).decode()
 
         return message
-
-

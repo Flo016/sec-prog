@@ -79,7 +79,6 @@ class Server:
 
             password_from_client = connection.receive_encrypted_authenticated(1024)
 
-
             if createAccount == "yes":
                 return self.create_account(connection, username_from_client, password_from_client)
             else:
