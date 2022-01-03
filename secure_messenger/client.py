@@ -29,7 +29,7 @@ class Client:
         self.user_login()
         while True:
             command = input("what do you want to do? [1] Write Message [2] Read Messages [3] Close Programm").lower()
-            if command == "1" or command == "message":
+            if command in ('1', ):
                 self.write_message()
             elif command == "2" or command == "read":
                 self.receive_message()
@@ -83,7 +83,13 @@ class Client:
             approved_username = self.receive_encrypted_authenticated(1024)
             print(approved_username)
             if approved_username == "Username unavailable. Please select another Username":
-                username = input("")
+
+                while True:
+                    username = input(message)
+                    if re.fullmatch('([A-Za-z0-9]|[._-]){3,10}', username):
+                        break
+                    message = "invalid username, please select another one."
+
                 self.send_encrypted_authenticated(username)
             else:
                 username = self.receive_encrypted_authenticated(1024)
@@ -173,7 +179,8 @@ class Client:
                         new_sender = False
                         break
             if new_sender:
-                sorted_after_sender.append(message[1])
+                temp_sender_array = [message[1]]
+                sorted_after_sender.append(temp_sender_array)
                 sorted_after_sender[len(sorted_after_sender) - 1].append(message)
             new_sender = True
 
@@ -277,6 +284,7 @@ class Client:
             return message[0]
         print("Potential Man in the Middle attack detected, shutting down connection")
         i = 7 / 0
+        return
 
     def update_IV(self):
         print(self.client_socket.recv(1024))

@@ -21,7 +21,6 @@ class Client:
             elif command == "3" or command == "close":
                 exit(0)
 
-
     def user_login(self):
         """Connect to Server Socket"""
         self.client_socket.connect(("127.0.0.1", 600))  # TODO use secure socket
@@ -73,8 +72,6 @@ class Client:
                 """ public_key, private_key = rsa.newkeys(512) #TODO Secure Private key in safe file
                 user_login.write(public_key+"\n")
                 user_login.write(private_key+"\n")"""
-
-
 
     def write_message(self):
         """issue message command, send receipient, send actuall message, """

@@ -63,7 +63,7 @@ class Server:
         """register an account? - This process is automated with client, if client doesnt find local log in data
             it creates an account(data_from_client = yes), if it does, it performs a login(data_from_client = no)"""
 
-        createAccount = client_server_socket.recv(1024).decode()
+        create_account = client_server_socket.recv(1024).decode()
 
         """Request Username and Password  with file name after username"""
         client_server_socket.send("Username?".encode())
@@ -73,7 +73,7 @@ class Server:
         password_from_client = client_server_socket.recv(1024).decode()
 
         while True:
-            if createAccount == "yes":
+            if create_account == "yes":
                 return self.create_account(client_server_socket, username_from_client, password_from_client)
             else:
                 try:
@@ -94,7 +94,7 @@ class Server:
                         return [username_from_client, False]
                 except Exception:
                     client_server_socket.send("no login data found, creating new account".encode())
-                    createAccount = "yes"
+                    create_account = "yes"
 
     @staticmethod
     def create_account(client_server_socket, username_from_client, password_from_client):
@@ -121,21 +121,20 @@ class Server:
                     continue
             """
 
-
-            actualUsername = username_from_client
+            actual_username = username_from_client
             try:
-                open('{}.txt'.format(actualUsername), 'r')
+                open('{}.txt'.format(actual_username), 'r')
 
             except Exception:
                 """ Create new file if username+ID doesn't exist 
                 file consist of: ("Password, Salt, (Message, Sender)*") """
-                client_server_socket.send(("Your Username is: {}".format(actualUsername)).encode())
+                client_server_socket.send(("Your Username is: {}".format(actual_username)).encode())
                 client_server_socket.recv(1024)
-                client_server_socket.send(actualUsername.encode())
-                login_data = open('{}.txt'.format(actualUsername), "w")
+                client_server_socket.send(actual_username.encode())
+                login_data = open('{}.txt'.format(actual_username), "w")
                 login_data.write(password_from_client)
                 login_data.close()
-                return [actualUsername, True]
+                return [actual_username, True]
 
             """If Username exists 10000 times already, use another Username"""
             client_server_socket.send(("Username unavailable. Please select another Username".encode()))

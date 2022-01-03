@@ -72,14 +72,14 @@ class Server:
         """register an account? - This process is automated with client, if client doesnt find local log in data
             it creates an account(data_from_client = yes), if it does, it performs a login(data_from_client = no)"""
         while True:
-            createAccount = connection.receive_encrypted_authenticated(1024)
+            create_account = connection.receive_encrypted_authenticated(1024)
 
             """Request Username and Password  with file name after username"""
             username_from_client = connection.receive_encrypted_authenticated(2048)
 
             password_from_client = connection.receive_encrypted_authenticated(1024)
 
-            if createAccount == "yes":
+            if create_account == "yes":
                 return self.create_account(connection, username_from_client, password_from_client)
             else:
                 try:
@@ -111,17 +111,17 @@ class Server:
 
         while True:
             """Give Username a random ID and check if ID already exists, if it does, create a new one and repeat"""
-            idArray = []
+            id_array = []
             for i in range(0, 10000):
-                idArray.append('{:d}'.format(i).zfill(4))  # create array form 0000-9999
-            for idArrayLimit in range(9999, -1, -1):
-                index = randrange(0, idArrayLimit)
-                userID = idArray[index]
+                id_array.append('{:d}'.format(i).zfill(4))  # create array form 0000-9999
+            for id_array_limit in range(9999, -1, -1):
+                index = randrange(0, id_array_limit)
+                userID = id_array[index]
                 actualUsername = username_from_client + "#" + userID  # example Username: Lmao#0045
                 try:
                     """Check if username+ID already exists, if yes choose new random ID and delete ID from idArray"""
                     open('{}.txt'.format(actualUsername), 'r')
-                    del idArray[:index]
+                    del id_array[:index]
                     continue
 
                 except Exception:
