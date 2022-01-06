@@ -206,12 +206,13 @@ class Client:
                         new_sender = False
                         break
             if new_sender:
-                message = message[1]
-                sorted_after_sender.append([message])
+                message_sender = message[1]
+                sorted_after_sender.append([message_sender])
                 sorted_after_sender[len(sorted_after_sender) - 1].append(message)
             new_sender = True
 
         # Print messages received by each sender
+        print(sorted_after_sender)
         for sender in sorted_after_sender:
             print(str(sender[0]) + " wrote: ")
             del sender[0]
@@ -219,7 +220,7 @@ class Client:
                 message = self.decrypt_sent_message(sender[i][2])
                 print("     " + str(sender[i][0] + " - " + message))  # timestamp - message
 
-            print("\n")
+            print("")   # to add an empty line to have a better overview
 
     @staticmethod
     def create_asymmetric_key():
