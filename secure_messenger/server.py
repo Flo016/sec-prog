@@ -1,14 +1,14 @@
-"""Creates a Server programme for an encrypted end to end messenger"""
+"""Creates a Server programm for an encrypted end to end messenger"""
 import datetime
 import hashlib
 from random import randrange
+import rsa
 import secrets
 import socket
 import threading
 import time
 from tinyec import registry
 from tinyec import ec
-import rsa
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 
@@ -35,7 +35,7 @@ class Server:
         current_user = login_data[0]
         if login_data[1]:
             while True:
-                print("stuff successful")
+                print("Command successfully executed, awaiting next instruction.")
                 command = connection.receive_encrypted_authenticated(1024)
                 if command == "message":
                     self.user_message(connection, current_user)
@@ -49,7 +49,7 @@ class Server:
     def main_loop(self):
 
         """ Create Server Socket and listen"""
-        self.server_socket.bind(("127.0.0.1", 600))  # TODO use secure socket
+        self.server_socket.bind(("127.0.0.1", 50))
         print("Server Listening...")
         self.server_socket.listen()
 
@@ -95,7 +95,6 @@ class Server:
                     else:
                         connection.send_encrypted_authenticated(
                             "Wrong Username or Password, please try again")
-                        print(username_from_client)
                         # Can only be false, if client data has been manipulated.
                         # therefore we close connection
                         login_success_array = [username_from_client, False]
@@ -148,7 +147,6 @@ class Server:
                         salt = salt + secrets.choice(possible_symbols)
                     # TODO add VERY SLOW sha algorithm
                     with open(f"{actual_username}.txt", "w", encoding='UTF_8') as login:
-                        print(str(password_from_client + salt))
                         login.write(
                             str(hashlib.sha512((password_from_client + salt).encode()).hexdigest())
                             + ';' + salt
@@ -169,7 +167,6 @@ class Server:
            create a message array with send_time, sender and message"""
 
         recipient = connection.receive_encrypted_authenticated(1024)
-        print(recipient)
         try:
             # check if file exists; file consist of:
             # ("Password;Salt;[Public_key];[Timestamp, Sender, Message]*")
@@ -186,6 +183,7 @@ class Server:
             with open(f"{recipient}.txt", "a", encoding='UTF_8') as user_file:
                 user_file.write(";" + str(message))
 
+
         except OSError:
             print("Username doesn't exist")
             connection.client_socket.close()
@@ -193,7 +191,7 @@ class Server:
     @staticmethod
     def collect_messages(connection, username):
         """Prepare messages to be sent, store sensitive data and reset the file """
-        with open(f"{username}", "r", encoding='UTF_8') as text_data:
+        with open(f"{username}.txt", "r", encoding='UTF_8') as text_data:
             file_data = text_data.read().split(";")
             sensitive_data = []
             for i in range(3):
@@ -201,7 +199,6 @@ class Server:
             # send each message one by one
             if len(file_data) > 3:
                 for i in range(3, len(file_data)):
-                    print(i)
                     connection.send_encrypted_authenticated(file_data[i])
                 connection.send_encrypted_authenticated("end_of_messages")
             else:
@@ -211,7 +208,6 @@ class Server:
         with open(f"{username}.txt", "a", encoding='UTF_8') as text_data:
             for i in range(1, len(sensitive_data)):
                 text_data.write(";" + sensitive_data[i])
-                print(sensitive_data[i])
             return True
 
     def create_symmetric_key(self, client_server_socket):
@@ -289,8 +285,6 @@ class OnConnection:
 
         message_mac = hashlib.sha256(message.encode()).hexdigest()
         message = message + ';' + message_mac
-        print("--- Message send: ---")
-        print(message)
         cipher = AES.new(self.symmetric_key, AES.MODE_CBC, self.iv)
         message = cipher.encrypt(pad(message.encode(), AES.block_size))
         self.client_socket.send(message)
@@ -303,7 +297,6 @@ class OnConnection:
         self.update_iv()
         message = unpad(cipher.decrypt(ciphertext), AES.block_size)
         message = message.decode().rsplit(';', 1)
-        print("--- Message receive ---")
         if message[1] == hashlib.sha256(message[0].encode()).hexdigest():
             return message[0]
         print("Potential Man in the Middle attack detected, shutting down connection")

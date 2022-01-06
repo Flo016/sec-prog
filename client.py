@@ -52,7 +52,7 @@ class Client:
 
             self.client_socket.send(username.encode())  # send Username
             self.client_socket.recv(1024)
-            self.client_socket.send(password.encode())  # send Password TODO send encrypted password
+            self.client_socket.send(password.encode())  # send Password
             while True:
                 approved_username = self.client_socket.recv(1024).decode()
                 print(approved_username)
@@ -74,15 +74,15 @@ class Client:
                 user_login.write(private_key+"\n")"""
 
     def write_message(self):
-        """issue message command, send receipient, send actuall message, """
+        """issue message command, send recipient, send actual message, """
         self.client_socket.send("message".encode())
         self.client_socket.recv(1024)
         user = input("Which user should receive this message? (you have to write UserID too)")
         message = input("What do you want to tell " + user + "?")
-        self.client_socket.send(user.encode()) # sends message receiver
-        self.client_socket.recv(1024) # wait for send message
+        self.client_socket.send(user.encode())   # sends message receiver
+        self.client_socket.recv(1024)   # wait for send message
         self.client_socket.send(message.encode())
-        self.client_socket.recv(1024) # wait for server confirmation before issuing next command
+        self.client_socket.recv(1024)   # wait for server confirmation before issuing next command
 
     def receive_message(self):
         """issue receive, then collect all messages until the "end of messages" command"""

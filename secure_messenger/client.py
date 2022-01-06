@@ -5,9 +5,9 @@ from os import remove
 import re
 import secrets
 import socket
-from sys import exit as sys_exit
 from tinyec import registry
 from tinyec import ec
+from sys import exit as sys_exit
 import rsa
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
@@ -22,7 +22,7 @@ class Client:
     def __init__(self):
         """Create Socket connection, perform login, read/write messages from/to users"""
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client_socket.connect(("127.0.0.1", 600))  # TODO use secure socket
+        self.client_socket.connect(("127.0.0.1", 50))
         print("connected")
         keys = self.create_asymmetric_key()  # [public key, private key]
         self.public_key = keys[0]
@@ -53,7 +53,6 @@ class Client:
                 self.send_encrypted_authenticated("no")
                 line = user_login.read()
                 lines = line.split(';')
-                print(lines)
                 # Send Username and Password
                 self.send_encrypted_authenticated(lines[1])
                 self.send_encrypted_authenticated(lines[0])
@@ -207,7 +206,8 @@ class Client:
                         new_sender = False
                         break
             if new_sender:
-                sorted_after_sender.append(message[1])
+                message = message[1]
+                sorted_after_sender.append([message])
                 sorted_after_sender[len(sorted_after_sender) - 1].append(message)
             new_sender = True
 
@@ -216,7 +216,6 @@ class Client:
             print(str(sender[0]) + " wrote: ")
             del sender[0]
             for i in range(len(sender)):  # [[message 1], [message 2], ..., [message i]]
-                print(sender[i][2])
                 message = self.decrypt_sent_message(sender[i][2])
                 print("     " + str(sender[i][0] + " - " + message))  # timestamp - message
 
@@ -267,7 +266,6 @@ class Client:
         # send client public key
         self.client_socket.send(str(self.public_key.n).encode())
         self.client_socket.send(str(self.public_key.e).encode())
-        print(self.public_key)
         # Check Authenticity
         self.client_socket.recv(10)
         challenge = secrets.token_bytes(245)
@@ -284,19 +282,13 @@ class Client:
         # scalar multiplication of private key and starting point G
         public_number = private_number * curve.g
         self.client_socket.send("go".encode())
-        print(type(public_number))
-        print(public_number.curve)
         # exchange public coordinates (x,y)
         self.client_socket.send(str(public_number.x).encode())
-        print("hallo3")
         self.client_socket.recv(10)
         self.client_socket.send(str(public_number.y).encode())
-        print("hallo4")
         server_public_number_x = int(self.client_socket.recv(1024).decode())
-        print("hallo")
         self.client_socket.send("go".encode())
         server_public_number_y = int(self.client_socket.recv(1024).decode())
-        print("hallo2")
 
         server_public_number = ec.Point(public_number.curve,
                                         server_public_number_x,
@@ -315,12 +307,8 @@ class Client:
         """create and combine message + MAC and encrypt it."""
         message_mac = hashlib.sha256(message.encode()).hexdigest()
         message = message + ';' + message_mac
-        print("--- Message send: ---")
-        print(message)
         cipher = AES.new(self.symmetric_key, AES.MODE_CBC, self.iv)
         message = cipher.encrypt(pad(message.encode(), AES.block_size))
-        print(message)
-        print(self.iv)
         self.client_socket.send(message)
         self.update_iv()
 
@@ -331,8 +319,6 @@ class Client:
         cipher = AES.new(self.symmetric_key, AES.MODE_CBC, self.iv)
         message = unpad(cipher.decrypt(ciphertext), AES.block_size)
         message = message.decode().rsplit(';', 1)
-        print("--- Message receive ---")
-        print(message)
         if message[1] == hashlib.sha256(message[0].encode()).hexdigest():
             self.update_iv()
             return message[0]
@@ -356,13 +342,17 @@ class Client:
            turn sent integers back into bytes
            decrypt symmetric key with private key
            decrypt message with symmetric key"""
+
+        def convert_to_bytes(integer_number):
+            return int(integer_number).to_bytes((int(integer_number).bit_length() + 7) // 8, 'big')
+
         parts = message.split(',')
-        eventual_message = int(parts[0]).to_bytes((int(parts[0]).bit_length() + 7) // 8, 'big')
-        symmetrical_key_pair = int(parts[1]).to_bytes((int(parts[1]).bit_length() + 7) // 8, 'big')
+        eventual_message = convert_to_bytes(parts[0])
+        symmetrical_key_pair = convert_to_bytes(parts[1])
         symmetrical_key_pair = rsa.decrypt(symmetrical_key_pair, self.private_key).decode()
         key_pair = symmetrical_key_pair.split(";")
-        symmetrical_key = int(key_pair[0]).to_bytes((int(key_pair[0]).bit_length() + 7) // 8, 'big')
-        iv = int(key_pair[1]).to_bytes((int(key_pair[1]).bit_length() + 7) // 8, 'big')
+        symmetrical_key = convert_to_bytes(key_pair[0])
+        iv = convert_to_bytes(key_pair[1])
 
         cipher = AES.new(symmetrical_key, AES.MODE_CBC, iv)
         message = unpad(cipher.decrypt(eventual_message), AES.block_size).decode()
