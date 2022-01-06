@@ -2,13 +2,13 @@
 import datetime
 import hashlib
 from random import randrange
+import rsa
 import secrets
 import socket
 import threading
 import time
 from tinyec import registry
 from tinyec import ec
-import rsa
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 
@@ -85,11 +85,9 @@ class Server:
                     # compare hashed password from client with password stored in user file
                     with open(f"{username_from_client}.txt", 'r', encoding='UTF_8') as user:
                         password = user.read().split(';')
-                        print(password[1])
                         password_from_client = hashlib.sha512(
                             (password_from_client + password[1]).encode()
                         ).hexdigest()
-                        print("password check")
                     if password[0] == password_from_client:
                         print(username_from_client + " log in successful")
                         connection.send_encrypted_authenticated("login success")
@@ -150,6 +148,7 @@ class Server:
                         salt = salt + secrets.choice(possible_symbols)
                     # TODO add VERY SLOW sha algorithm
                     with open(f"{actual_username}.txt", "w", encoding='UTF_8') as login:
+                        print(str(password_from_client + salt))
                         login.write(
                             str(hashlib.sha512((password_from_client + salt).encode()).hexdigest())
                             + ';' + salt
@@ -267,7 +266,6 @@ class Server:
         client_public_n = int(client_server_socket.recv(3000).decode())
         client_public_e = int(client_server_socket.recv(1024).decode())
         client_public = rsa.PublicKey(client_public_n, client_public_e)
-        print(client_public)
         # Prove Authenticity
         client_server_socket.send("go".encode())
         challenge = client_server_socket.recv(3500)
@@ -301,20 +299,16 @@ class OnConnection:
     def receive_encrypted_authenticated(self, byte_amount):
         """Receive Message and encrypt it, then check for Authenticity"""
         ciphertext = self.client_socket.recv(byte_amount)
-        print(ciphertext)
-        print(self.iv)
         cipher = AES.new(self.symmetric_key, AES.MODE_CBC, self.iv)
         self.update_iv()
-        print("hallo")
         message = unpad(cipher.decrypt(ciphertext), AES.block_size)
-        print(message)
         message = message.decode().rsplit(';', 1)
         print("--- Message receive ---")
-        print(message)
         if message[1] == hashlib.sha256(message[0].encode()).hexdigest():
             return message[0]
         print("Potential Man in the Middle attack detected, shutting down connection")
         self.client_socket.close()
+        return None
 
     def update_iv(self):
         """Update IV after every message that has been sent"""

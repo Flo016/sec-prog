@@ -5,9 +5,9 @@ from os import remove
 import re
 import secrets
 import socket
-from sys import exit
 from tinyec import registry
 from tinyec import ec
+from sys import exit as sys_exit
 import rsa
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
@@ -43,7 +43,7 @@ class Client:
                 self.receive_message()
             elif command in ('3', 'close'):
                 self.client_socket.close()
-                exit()
+                sys_exit()
 
     def user_login(self):
         """if login data exists log in with it. If not create a new account"""
@@ -53,6 +53,7 @@ class Client:
                 self.send_encrypted_authenticated("no")
                 line = user_login.read()
                 lines = line.split(';')
+                print(lines)
                 # Send Username and Password
                 self.send_encrypted_authenticated(lines[1])
                 self.send_encrypted_authenticated(lines[0])
@@ -62,7 +63,7 @@ class Client:
                     print(answer)
                     remove("client_login_data.txt")
                     self.client_socket.close()
-                    exit()
+                    sys_exit()
         except OSError:
             self.create_account()
 
@@ -96,7 +97,7 @@ class Client:
         # send username and password
         self.send_encrypted_authenticated(username)
         with open("client_login_data.txt", 'r', encoding='UTF_8') as user_login:
-            self.send_encrypted_authenticated(str(user_login.read))
+            self.send_encrypted_authenticated(user_login.read())
 
         while True:
             approved_username = self.receive_encrypted_authenticated(1024)
@@ -184,7 +185,7 @@ class Client:
                 # if no messages are found, inform user and return from function
                 print("No new messages.")
                 return True
-            elif messages[len(messages) - 1] == "end_of_messages":
+            if messages[len(messages) - 1] == "end_of_messages":
                 break
 
         # Filter first and last message, and convert String arrays to "real" Arrays
@@ -275,7 +276,7 @@ class Client:
         if challenge != response:
             print("Authentication unsuccessful, closing connection - man in the middle attack.")
             self.client_socket.close()
-            exit()
+            sys_exit()
         print("Authentication successful")
 
         curve = registry.get_curve('brainpoolP256r1')
@@ -337,7 +338,7 @@ class Client:
             return message[0]
         print("Potential Man in the Middle attack detected, shutting down connection")
         self.client_socket.close()
-        return exit()
+        return sys_exit
 
     def update_iv(self):
         """generate new IV, send it to the Server and update variable self.iv"""
