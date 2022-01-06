@@ -118,7 +118,8 @@ class Client:
                         new_sender = False
                         break
             if new_sender:
-                sorted_after_sender.append(message[1])
+                temp_sender = [message[1]]
+                sorted_after_sender.append(temp_sender)
                 sorted_after_sender[len(sorted_after_sender)-1].append(message)
             new_sender = True
 
