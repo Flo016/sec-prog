@@ -1,5 +1,5 @@
+"""Creates a Client programme for an encrypted end to end messenger"""
 from ast import literal_eval
-from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 import hashlib
 from os import remove
@@ -9,7 +9,8 @@ import secrets
 import socket
 from tinyec import registry
 from tinyec import ec
-
+from sys import exit
+from Crypto.Cipher import AES
 
 # Start Client separately from Server
 
@@ -23,7 +24,7 @@ class Client:
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_socket.connect(("127.0.0.1", 600))  # TODO use secure socket
         print("connected")
-        keys = self.create_Asymmetric_key()  # [public key, private key]
+        keys = self.create_asymmetric_key()  # [public key, private key]
         self.public_key = keys[0]
         self.private_key = keys[1]
         self.symmetric_key = self.create_symmetric_key()  # [symmetric key, Initial value]
@@ -42,7 +43,7 @@ class Client:
                 self.receive_message()
             elif command in ('3', 'close'):
                 self.client_socket.close()
-                exit(0)
+                exit()
 
     def user_login(self):
         """if login data exists log in with it. If not create a new account"""
@@ -61,7 +62,7 @@ class Client:
                     print(answer)
                     remove("client_login_data.txt")
                     self.client_socket.close()
-                    exit(0)
+                    exit()
         except OSError:
             self.create_account()
 
@@ -89,7 +90,7 @@ class Client:
             user_login.write(secrets.choice(possible_symbols))
         # Append the other 29
         with open("client_login_data.txt", 'a', encoding='UTF_8') as user_login:
-            for i in range(29):
+            for _ in range(29):
                 user_login.write(secrets.choice(possible_symbols))
 
         # send username and password
@@ -114,7 +115,7 @@ class Client:
                 break
 
         # TODO Privilege management
-        with open("client_login_data.txt", 'a') as user_login:
+        with open("client_login_data.txt", 'a', encoding="UTF_8") as user_login:
             user_login.write(";" + username)
 
     def write_message(self):
@@ -179,12 +180,12 @@ class Client:
         while True:
             # Message Array: [Timestamp, Sender, Message]
             messages.append(self.receive_encrypted_authenticated(3000))
-            if messages[len(messages) - 1] == "end_of_messages":
-                break
-            elif messages[len(messages) - 1] == "No new messages.":
+            if messages[len(messages) - 1] == "No new messages.":
                 # if no messages are found, inform user and return from function
                 print("No new messages.")
                 return True
+            elif messages[len(messages) - 1] == "end_of_messages":
+                break
 
         # Filter first and last message, and convert String arrays to "real" Arrays
         actual_messages = []
@@ -221,7 +222,7 @@ class Client:
             print("\n")
 
     @staticmethod
-    def create_Asymmetric_key():
+    def create_asymmetric_key():
         """Try to read keypair, if impossible create new keypair"""
         try:
             with open("client_login_data.txt", 'r', encoding='UTF_8') as test:
@@ -274,7 +275,7 @@ class Client:
         if challenge != response:
             print("Authentication unsuccessful, closing connection - man in the middle attack.")
             self.client_socket.close()
-            exit(0)
+            exit()
         print("Authentication successful")
 
         curve = registry.get_curve('brainpoolP256r1')
@@ -336,7 +337,7 @@ class Client:
             return message[0]
         print("Potential Man in the Middle attack detected, shutting down connection")
         self.client_socket.close()
-        exit(0)
+        return exit()
 
     def update_iv(self):
         """generate new IV, send it to the Server and update variable self.iv"""

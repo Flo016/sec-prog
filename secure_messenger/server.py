@@ -1,4 +1,4 @@
-from Crypto.Cipher import AES
+"""Creates a Server programm for an encrypted end to end messenger"""
 from Crypto.Util.Padding import pad, unpad
 import datetime
 import hashlib
@@ -10,6 +10,7 @@ import threading
 import time
 from tinyec import registry
 from tinyec import ec
+from Crypto.Cipher import AES
 
 
 class Server:
@@ -30,7 +31,7 @@ class Server:
         # And also functions to securely send and receive messages
         connection = OnConnection(client_server_socket, keys[0], keys[1], keys[2])
 
-        login_data = self.log_in_request(connection)   # [Username;Login Successful/Unsuccessful]
+        login_data = self.log_in_request(connection)  # [Username;Login Successful/Unsuccessful]
         current_user = login_data[0]
         if login_data[1]:
             while True:
@@ -54,7 +55,6 @@ class Server:
 
         # Handle one connection per loop cycle
         while True:
-
             # Wait for connections
             (client_connected, client_address) = self.server_socket.accept()
 
@@ -90,7 +90,7 @@ class Server:
                         print(password[1])
                         password_from_client = hashlib.sha512(
                             (password_from_client + password[1]).encode()
-                            ).hexdigest()
+                        ).hexdigest()
                     if password[0] == password_from_client:
                         print(username_from_client + " log in successful")
                         connection.send_encrypted_authenticated("login success")
@@ -138,7 +138,7 @@ class Server:
                     # file consist of:
                     # ("Password; Salt; [Public_key, Exponent]; [Timestamp, Sender, Message]*")
 
-                    connection.send_encrypted_authenticated("Your Username is: {}".format(actual_username))
+                    connection.send_encrypted_authenticated(F"Your Username is: {actual_username}")
                     # Send String with only Username
                     connection.send_encrypted_authenticated(actual_username)
 
@@ -162,7 +162,7 @@ class Server:
 
             # If Username exists 10000 times already, use another Username
             connection.send_encrypted_authenticated(
-                        "Username unavailable. Please select another Username")
+                "Username unavailable. Please select another Username")
             username_from_client = connection.receive_encrypted_authenticated(1024)
 
     @staticmethod
@@ -175,19 +175,19 @@ class Server:
         try:
             # check if file exists; file consist of:
             # ("Password;Salt;[Public_key];[Timestamp, Sender, Message]*")
-            user_file = open(f"{recipient}.txt", "r", encoding='UTF_8')
-            # send recipient public key
-            connection.send_encrypted_authenticated(user_file.read().split(';')[2])
-            user_file.close()
+            with open(f"{recipient}.txt", "r", encoding='UTF_8') as user_file:
+                # send recipient public key
+                connection.send_encrypted_authenticated(user_file.read().split(';')[2])
+
             message = connection.receive_encrypted_authenticated(4096)
             # take timestamp
             time_stamp = time.time()
             send_time = datetime.datetime.fromtimestamp(time_stamp).strftime('%d-%m-%Y %H:%M')
             # create message array
             message = [send_time, sender, message]
-            user_file = open(f"{recipient}.txt", "a", encoding='UTF_8')
-            user_file.write(";" + str(message))
-            user_file.close()
+            with open(f"{recipient}.txt", "a", encoding='UTF_8') as user_file:
+                user_file.write(";" + str(message))
+
 
         except OSError:
             print("Username doesn't exist")
@@ -217,27 +217,14 @@ class Server:
                 print(sensitive_data[i])
             return True
 
-    @staticmethod
-    def create_symmetric_key(client_server_socket):
+    def create_symmetric_key(self, client_server_socket):
         """ first get client Public key and load server Private key
             then authenticate yourself
             then exchange values for Symmetric key
             then receive first iv for further symmetric encryption"""
 
-        with open("Private_key.pem", 'r', encoding='UTF_8') as private_key:
-            priv_key = rsa.PrivateKey.load_pkcs1(private_key.read())
+        client_public = self.check_authenticity(client_server_socket)
 
-        client_server_socket.send("public_key?".encode())
-
-        client_public_n = int(client_server_socket.recv(3000).decode())
-        client_public_e = int(client_server_socket.recv(1024).decode())
-        client_public = rsa.PublicKey(client_public_n, client_public_e)
-        print(client_public)
-        # Prove Authenticity
-        client_server_socket.send("go".encode())
-        challenge = client_server_socket.recv(3500)
-        response = rsa.decrypt(challenge, priv_key)
-        client_server_socket.send(response)
         client_server_socket.recv(10)
         curve = registry.get_curve('brainpoolP256r1')
         private_number = secrets.randbelow(curve.field.n)
@@ -269,6 +256,28 @@ class Server:
         iv = unpad(cipher.decrypt(iv), AES.block_size)
         return [client_public, symmetric_key, iv]
 
+    @staticmethod
+    def check_authenticity(client_server_socket):
+        """Loads Private key to respond to Challenge, sends solved Challenge and
+        stores client public key"""
+
+        with open("Private_key.pem", 'r', encoding='UTF_8') as private_key:
+            priv_key = rsa.PrivateKey.load_pkcs1(private_key.read())
+
+        client_server_socket.send("public_key?".encode())
+
+        client_public_n = int(client_server_socket.recv(3000).decode())
+        client_public_e = int(client_server_socket.recv(1024).decode())
+        client_public = rsa.PublicKey(client_public_n, client_public_e)
+        print(client_public)
+        # Prove Authenticity
+        client_server_socket.send("go".encode())
+        challenge = client_server_socket.recv(3500)
+        response = rsa.decrypt(challenge, priv_key)
+        client_server_socket.send(response)
+
+        return client_public
+
 
 class OnConnection:
     def __init__(self, client_socket, client_public_key, symmetric_key, iv):
@@ -290,6 +299,7 @@ class OnConnection:
         self.update_iv()
 
     def receive_encrypted_authenticated(self, byte_amount):
+        """Receive Message and encrypt it, then check for Authenticity"""
         ciphertext = self.client_socket.recv(byte_amount)
         print(ciphertext)
         print(self.iv)
@@ -307,9 +317,10 @@ class OnConnection:
         self.client_socket.close()
 
     def update_iv(self):
+        """Update IV after every message that has been sent"""
         # this iv is needed to synchronize the iv used to send the first encryption iv.
         first_iv = b'thisisthefirstiv'
         self.client_socket.send("go".encode())
-        actual_iv = self.client_socket.recv(1024)   # iv is always user calculated
+        actual_iv = self.client_socket.recv(1024)  # iv is always user calculated
         cipher = AES.new(self.symmetric_key, AES.MODE_CBC, first_iv)
         self.iv = unpad(cipher.decrypt(actual_iv), AES.block_size)
