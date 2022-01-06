@@ -1,6 +1,5 @@
 """Creates a Client programme for an encrypted end to end messenger"""
 from ast import literal_eval
-from Crypto.Util.Padding import pad, unpad
 import hashlib
 from os import remove
 import rsa
@@ -11,6 +10,7 @@ from tinyec import registry
 from tinyec import ec
 from sys import exit
 from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
 
 # Start Client separately from Server
 

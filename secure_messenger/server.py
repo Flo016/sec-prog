@@ -1,5 +1,4 @@
-"""Creates a Server programm for an encrypted end to end messenger"""
-from Crypto.Util.Padding import pad, unpad
+"""Creates a Server programme for an encrypted end to end messenger"""
 import datetime
 import hashlib
 from random import randrange
@@ -11,6 +10,7 @@ import time
 from tinyec import registry
 from tinyec import ec
 from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
 
 
 class Server:
@@ -69,9 +69,7 @@ class Server:
             if client doesnt find local log in data, it creates an account(data_from_client = yes),
             if it does, it performs a login(data_from_client = no)"""
         while True:
-            print("halal")
             create_an_account = connection.receive_encrypted_authenticated(1024)
-            print("halalala")
             # Request Username and Password  with file name after username
             username_from_client = connection.receive_encrypted_authenticated(2048)
 
@@ -91,6 +89,7 @@ class Server:
                         password_from_client = hashlib.sha512(
                             (password_from_client + password[1]).encode()
                         ).hexdigest()
+                        print("password check")
                     if password[0] == password_from_client:
                         print(username_from_client + " log in successful")
                         connection.send_encrypted_authenticated("login success")
@@ -120,7 +119,7 @@ class Server:
 
             id_array = []
             for i in range(0, 10000):
-                id_array.append('{:d}'.format(i).zfill(4))  # create array form 0000-9999
+                id_array.append(f'{i}'.zfill(4))  # create array form 0000-9999
             for id_array_limit in range(9999, -1, -1):
                 index = randrange(0, id_array_limit)
                 user_id = id_array[index]
@@ -187,7 +186,6 @@ class Server:
             message = [send_time, sender, message]
             with open(f"{recipient}.txt", "a", encoding='UTF_8') as user_file:
                 user_file.write(";" + str(message))
-
 
         except OSError:
             print("Username doesn't exist")
@@ -280,6 +278,8 @@ class Server:
 
 
 class OnConnection:
+    """Creates an connection object which stores information and provides secure communication"""
+
     def __init__(self, client_socket, client_public_key, symmetric_key, iv):
         self.client_socket = client_socket
         self.client_public_key = client_public_key
