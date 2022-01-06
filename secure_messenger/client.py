@@ -5,9 +5,9 @@ from os import remove
 import re
 import secrets
 import socket
+from sys import exit as sys_exit
 from tinyec import registry
 from tinyec import ec
-from sys import exit as sys_exit
 import rsa
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
