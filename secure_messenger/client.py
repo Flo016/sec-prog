@@ -1,5 +1,6 @@
 """Creates a Client programme for an encrypted end to end messenger"""
 from ast import literal_eval
+import base64
 import hashlib
 from os import remove
 import re
@@ -9,15 +10,15 @@ from tinyec import registry
 from tinyec import ec
 from sys import exit as sys_exit
 import rsa
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
+import cryptography.exceptions
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 # Start Client separately from Server
 
 
 class Client:
-    """Create a client instance which connects to the Server, performs a log in and
-       lets you read and send messages."""
+    """Create a client instance which connects to an encrypted end to end messenger
+       Server, performs a log in and lets you read and send messages."""
 
     def __init__(self):
         """Create Socket connection, perform login, read/write messages from/to users"""
@@ -27,7 +28,7 @@ class Client:
         keys = self.create_asymmetric_key()  # [public key, private key]
         self.public_key = keys[0]
         self.private_key = keys[1]
-        self.symmetric_key = self.create_symmetric_key()  # [symmetric key, Initial value]
+        self.symmetric_key = self.create_symmetric_key()
         self.iv = b''
         self.update_iv()
         self.user_login()
@@ -49,26 +50,29 @@ class Client:
         """if login data exists log in with it. If not create a new account"""
 
         try:
+            # Send Username and Password
             with open("client_login_data.txt", 'r', encoding='UTF_8') as user_login:
                 self.send_encrypted_authenticated("no")
-                line = user_login.read()
-                lines = line.split(';')
-                # Send Username and Password
-                self.send_encrypted_authenticated(lines[1])
-                self.send_encrypted_authenticated(lines[0])
-                answer = self.receive_encrypted_authenticated(1000)
+                self.client_socket.recv(123)   # wait for server ready (go)
+                self.send_encrypted_authenticated(user_login.read().split(';')[1])
+
+            self.client_socket.recv(123)   # wait for server ready (go)
+            with open("client_login_data.txt", 'r', encoding='UTF_8') as user_login:
+                self.send_encrypted_authenticated(user_login.read().split(';')[0])
+
+            answer = self.receive_encrypted_authenticated(1000)
+            if answer == "Wrong Username or Password, please try again":
                 print(answer)
-                if answer == "Wrong Username or Password, please try again":
-                    print(answer)
-                    remove("client_login_data.txt")
-                    self.client_socket.close()
-                    sys_exit()
+                remove("client_login_data.txt")
+                self.client_socket.close()
+                sys_exit()
         except OSError:
             self.create_account()
 
     def create_account(self):
         """If log in data doesn't exist, create a new account"""
         self.send_encrypted_authenticated("yes")
+        self.client_socket.recv(123)
         message = "no login data found, please select a Username.\n" \
                   "Your username can be 3 - 10 characters long and contain \n" \
                   "numbers, ASCII letters and these special characters: . _ -  \n" \
@@ -95,6 +99,7 @@ class Client:
 
         # send username and password
         self.send_encrypted_authenticated(username)
+        self.client_socket.recv(123)   # wait for server ready (go)
         with open("client_login_data.txt", 'r', encoding='UTF_8') as user_login:
             self.send_encrypted_authenticated(user_login.read())
 
@@ -111,6 +116,7 @@ class Client:
 
                 self.send_encrypted_authenticated(username)
             else:
+                self.client_socket.send("go".encode())
                 username = self.receive_encrypted_authenticated(1024)
                 break
 
@@ -129,26 +135,7 @@ class Client:
                 continue
             break
 
-        self.send_encrypted_authenticated(user)
-        key_material = self.receive_encrypted_authenticated(3000)   # receive recipient Public key
-        key_material = literal_eval(key_material)
-
-        public_key = rsa.PublicKey(int(key_material[0]), int(key_material[1]))
-
-        # generate symmetrical key and iv for message
-        curve = registry.get_curve('brainpoolP256r1')
-        private_number = secrets.randbelow(curve.field.n)  # create a random multiplier
-        # scalar multiplication of private key and starting point G
-        public_number = private_number * curve.g
-        key = private_number * public_number
-        # turn sha(key.x) to bytes
-        key = int(hashlib.sha256(str(key.x).encode()).hexdigest(), 16).to_bytes(32, 'big')
-        iv = secrets.token_bytes(16)
-        cipher = AES.new(key, AES.MODE_CBC, iv)
-
         # generate message,
-        # encrypt with symmetric key and iv, encrypt symmetric key and iv with public key
-
         message = input("What do you want to tell " + user + "?\n"
                         "(messages can only be 1024 characters long)\n"
                         "Message: ")
@@ -156,20 +143,43 @@ class Client:
             print(len(message))
             if len(message) > 1024:
                 message = input(
-                        "Your message was too long, please send a shorter one"
-                        ", or write two messages.\n"
-                        "Message:")
+                    "Your message was too long, please send a shorter one, "
+                    "or write two messages.\n"
+                    "Message:")
                 continue
             break
 
-        message = cipher.encrypt(pad(message.encode(), AES.block_size))
+        # receive recipient Public key
+        self.send_encrypted_authenticated(user)
+        key_material = self.receive_encrypted_authenticated(3000)
+        key_material = literal_eval(key_material)
+        public_key = rsa.PublicKey(int(key_material[0]), int(key_material[1]))
+
+        # encrypt with symmetric key and an iv, then encrypt key and iv with public key
+        # generate symmetrical key and iv for message
+        curve = registry.get_curve('brainpoolP256r1')
+        private_number = secrets.randbelow(curve.field.n)  # create a random multiplier
+        # scalar multiplication of private key and starting point G
+        public_number = private_number * curve.g
+        key = private_number * public_number
+        # turn sha(key.x) to bytes
+
+        key = int(hashlib.sha256(str(key.x).encode()).hexdigest(), 16).to_bytes(32, 'big')
+        iv = secrets.token_bytes(16)
+        pad = str(int.from_bytes(iv, 'big'))
+
+        message = self.encrypt_message(message, key, iv)
 
         # combine message and encrypted keypair and send
         symmetrical_key_pair = str(int.from_bytes(key, 'big')) + \
                                ';' + str(int.from_bytes(iv, 'big'))
+
         symmetrical_key_pair = rsa.encrypt(symmetrical_key_pair.encode(), public_key)
+
         message = str(int.from_bytes(message, 'big')) + \
-                  ',' + str(int.from_bytes(symmetrical_key_pair, 'big'))
+                  ',' + str(int.from_bytes(symmetrical_key_pair, 'big')) + \
+                  ',' + pad
+
         self.send_encrypted_authenticated(message)
 
     def receive_message(self):
@@ -179,7 +189,7 @@ class Client:
         self.send_encrypted_authenticated("receive")
         while True:
             # Message Array: [Timestamp, Sender, Message]
-            messages.append(self.receive_encrypted_authenticated(3000))
+            messages.append(self.receive_encrypted_authenticated(5000))
             if messages[len(messages) - 1] == "No new messages.":
                 # if no messages are found, inform user and return from function
                 print("No new messages.")
@@ -212,39 +222,23 @@ class Client:
             new_sender = True
 
         # Print messages received by each sender
-        print(sorted_after_sender)
         for sender in sorted_after_sender:
             print(str(sender[0]) + " wrote: ")
             del sender[0]
             for i in range(len(sender)):  # [[message 1], [message 2], ..., [message i]]
-                message = self.decrypt_sent_message(sender[i][2])
+                message = self.decrypt_received_message(sender[i][2])
                 print("     " + str(sender[i][0] + " - " + message))  # timestamp - message
 
-            print("")   # to add an empty line to have a better overview
+            print("")  # to add an empty line to have a better overview
 
     @staticmethod
     def create_asymmetric_key():
         """Try to read keypair, if impossible create new keypair"""
         try:
-            with open("client_login_data.txt", 'r', encoding='UTF_8') as test:
-                test.close()
-            try:
-                with open("private_key.PEM", 'r', encoding='UTF_8') as key:
-                    private_key = rsa.PrivateKey.load_pkcs1(key.read())
-                with open("public_key.PEM", 'r', encoding='UTF_8') as key:
-                    public_key = rsa.PublicKey.load_pkcs1(key.read())
-                return [public_key, private_key]
-
-            except OSError:
-                # TODO inform server of changed public keys.
-                (public_key, private_key) = rsa.newkeys(2048, accurate=True)
-                # exponent = 65537, key_length = 2048 bits
-                # private_key object stored in .PEM file
-                with open("private_key.pem", 'w', encoding='UTF_8') as key:
-                    key.write(private_key.save_pkcs1().decode())
-                with open("public_key.pem", 'w', encoding='UTF_8') as key:
-                    key.write(public_key.save_pkcs1().decode())
-                return [public_key, private_key]
+            with open("private_key.pem", "r", encoding='UTF_8') as key:
+                private_key = rsa.PrivateKey.load_pkcs1(key.read())
+            with open("public_key.pem", "r", encoding='UTF_8') as key:
+                public_key = rsa.PublicKey.load_pkcs1(key.read())
 
         except OSError:
             (public_key, private_key) = rsa.newkeys(2048, accurate=True)
@@ -256,27 +250,13 @@ class Client:
                 key.write(public_key.save_pkcs1().decode())
             return [public_key, private_key]
 
+        return [public_key, private_key]
+
     def create_symmetric_key(self):
-        """We create a symmetric key bye using the Elliptic Curve Diffie hellman key exchange"""
-        self.client_socket.recv(20)
+        """first we check Partner Authenticity
+           then create a symmetric key bye using the Elliptic Curve Diffie hellman key exchange"""
 
-        # load server public key
-        with open("Server_public_key.pem", 'r', encoding='UTF_8') as server_public_key:
-            server_key = rsa.PublicKey.load_pkcs1(server_public_key.read())
-
-        # send client public key
-        self.client_socket.send(str(self.public_key.n).encode())
-        self.client_socket.send(str(self.public_key.e).encode())
-        # Check Authenticity
-        self.client_socket.recv(10)
-        challenge = secrets.token_bytes(245)
-        self.client_socket.send(rsa.encrypt(challenge, server_key))
-        response = self.client_socket.recv(4000)
-        if challenge != response:
-            print("Authentication unsuccessful, closing connection - man in the middle attack.")
-            self.client_socket.close()
-            sys_exit()
-        print("Authentication successful")
+        self.check_authenticity()
 
         curve = registry.get_curve('brainpoolP256r1')
         private_number = secrets.randbelow(curve.field.n)  # create a random multiplier
@@ -304,47 +284,67 @@ class Client:
         symmetric_key = int(symmetric_key, 16).to_bytes(32, 'big')
         return symmetric_key
 
+    def check_authenticity(self):
+        """Proves Authenticity of Server via Challenge Response"""
+        self.client_socket.recv(20)
+
+        # load server public key
+        with open("Server_public_key.pem", 'r', encoding='UTF_8') as server_public_key:
+            server_key = rsa.PublicKey.load_pkcs1(server_public_key.read())
+
+        # send client public key
+        self.client_socket.send(str(self.public_key.n).encode())
+        self.client_socket.send(str(self.public_key.e).encode())
+        # Check Authenticity
+        self.client_socket.recv(10)
+        challenge = secrets.token_bytes(245)
+        self.client_socket.send(rsa.encrypt(challenge, server_key))
+        response = self.client_socket.recv(4000)
+        if challenge != response:
+            print("Authentication unsuccessful, closing connection - man in the middle attack.")
+            self.client_socket.close()
+            sys_exit()
+        print("Authentication successful")
+
     def send_encrypted_authenticated(self, message):
-        """create and combine message + MAC and encrypt it."""
-        message_mac = hashlib.sha256(message.encode()).hexdigest()
-        message = message + ';' + message_mac
-        cipher = AES.new(self.symmetric_key, AES.MODE_CBC, self.iv)
-        message = cipher.encrypt(pad(message.encode(), AES.block_size))
-        self.client_socket.send(message)
-        self.update_iv()
+        """Encrypt message, generate next iv and send both"""
+
+        message = self.encrypt_message(message, self.symmetric_key, self.iv)
+        self.iv = secrets.token_bytes(16)
+        # send next IV and then send message
+        self.client_socket.send(self.iv)
+        self.client_socket.send(base64.b64encode(message))
 
     def receive_encrypted_authenticated(self, byte_amount):
-        """decrypt received message,
-           calculate MAC of received message and compare with received MAC"""
+        """decrypt received message, update IV and return message"""
+        stored_iv = self.client_socket.recv(16)
         ciphertext = self.client_socket.recv(byte_amount)
-        cipher = AES.new(self.symmetric_key, AES.MODE_CBC, self.iv)
-        message = unpad(cipher.decrypt(ciphertext), AES.block_size)
-        message = message.decode().rsplit(';', 1)
-        if message[1] == hashlib.sha256(message[0].encode()).hexdigest():
-            self.update_iv()
-            return message[0]
-        print("Potential Man in the Middle attack detected, shutting down connection")
-        self.client_socket.close()
-        return sys_exit
+        ciphertext = base64.b64decode(ciphertext)
+        message = self.decrypt_message(ciphertext, self.symmetric_key, self.iv)
+        self.iv = stored_iv
+        return message
 
     def update_iv(self):
-        """generate new IV, send it to the Server and update variable self.iv"""
+        """generate new IV, send it to the Server and update variable self.iv
+        no padding is needed as the IV is already the correct byte size."""
         # this iv is needed to synchronize the iv used to send the first encryption iv.
         self.client_socket.recv(13)
         first_iv = b'thisisthefirstiv'
         actual_iv = secrets.token_bytes(16)
-        cipher = AES.new(self.symmetric_key, AES.MODE_CBC, first_iv)
-        message = cipher.encrypt(pad(actual_iv, AES.block_size))
+        cipher = Cipher(algorithms.AES(self.symmetric_key), modes.CBC(first_iv))
+        encryptor = cipher.encryptor()
+        message = encryptor.update(actual_iv) + encryptor.finalize()
         self.client_socket.send(message)
         self.iv = actual_iv
 
-    def decrypt_sent_message(self, message):
+    def decrypt_received_message(self, message):
         """reverse the process of writing a message
            turn sent integers back into bytes
-           decrypt symmetric key with private key
+           decrypt symmetric key and IV with private key
            decrypt message with symmetric key"""
 
         def convert_to_bytes(integer_number):
+            """round bits up to 8 bytes and turn integer into corresponding bytes"""
             return int(integer_number).to_bytes((int(integer_number).bit_length() + 7) // 8, 'big')
 
         parts = message.split(',')
@@ -354,8 +354,52 @@ class Client:
         key_pair = symmetrical_key_pair.split(";")
         symmetrical_key = convert_to_bytes(key_pair[0])
         iv = convert_to_bytes(key_pair[1])
-
-        cipher = AES.new(symmetrical_key, AES.MODE_CBC, iv)
-        message = unpad(cipher.decrypt(eventual_message), AES.block_size).decode()
-
+        message = self.decrypt_message(eventual_message, symmetrical_key, iv)
         return message
+
+    @staticmethod
+    def encrypt_message(message, key, iv):
+        """create and combine message + MAC and encrypt it.
+           encryption is done with CBC Padded with the next used IV Value
+           -> blocks of incorrect size are of IV and are discarded
+              which doesnt matter however as IV is sent separately before."""
+
+        message_mac = hashlib.sha256(message.encode()).hexdigest()
+        pad = str(int.from_bytes(iv, 'big'))
+        message = (message + ';' + message_mac + ';' + pad).encode()
+
+        # encrypt message
+        cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+        encryptor = cipher.encryptor()
+        message = encryptor.update(message)
+        try:
+            message += encryptor.finalize()
+        except cryptography.exceptions.AlreadyFinalized:
+            # This exception occurs on the last block of the encryption.
+            # As the last block is supposed to be discarded, the exception does nothing.
+            pass
+        except ValueError:
+            # This exception occurs on the last block of the encryption.
+            # As the last block is supposed to be discarded, the exception does nothing.
+            pass
+        return message
+
+    @staticmethod
+    def decrypt_message(ciphertext, key, iv):
+        """decrypt message, compare MACs. If MACs are not the same,
+         inform user and close connection"""
+
+        cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+        decryptor = cipher.decryptor()
+        message = decryptor.update(ciphertext)
+        try:
+            message += decryptor.finalize()
+        except ValueError:
+            # This exception occurs on the last block of the decryption.
+            # As the last block is supposed to be discarded, the exception does nothing.
+            pass
+        message = message.decode().rsplit(';', 2)
+        if message[1] == hashlib.sha256(message[0].encode()).hexdigest():
+            return message[0]
+        print("Potential Man in the Middle attack detected, shutting down connection")
+        return sys_exit
