@@ -210,11 +210,8 @@ class Client:
                 for i in range(0, len(sender)):
                     # If sender exists, append message to sender,
                     # else create new sender in sorted_after_sender
-                    print(sender)
-                    print("i value: " + str(i))
                     if message[1] == sender[i]:
                         # Array looks like: [[sender1, message1, message2], [sender2, message1]]
-                        print("appended message")
                         for j in range(len(sorted_after_sender)):
                             if sorted_after_sender[j][0] == message[1]:
                                 sorted_after_sender[j].append(message)
@@ -224,11 +221,8 @@ class Client:
             if new_sender:
                 message_sender = message[1]
                 sorted_after_sender.append([message_sender])
-                print("appended new sender")
                 sorted_after_sender[len(sorted_after_sender) - 1].append(message)
-                print(sorted_after_sender)
             new_sender = True
-        print(sorted_after_sender)
         # Print messages received by each sender
         for sender in sorted_after_sender:
             print(str(sender[0]) + " wrote: ")
