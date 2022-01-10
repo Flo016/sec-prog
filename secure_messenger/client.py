@@ -189,6 +189,7 @@ class Client:
         while True:
             # Message Array: [Timestamp, Sender, Message]
             messages.append(self.receive_encrypted_authenticated(5000))
+            self.client_socket.send("go".encode())
             if messages[len(messages) - 1] == "No new messages.":
                 # if no messages are found, inform user and return from function
                 print("No new messages.")
@@ -209,17 +210,25 @@ class Client:
                 for i in range(0, len(sender)):
                     # If sender exists, append message to sender,
                     # else create new sender in sorted_after_sender
+                    print(sender)
+                    print("i value: " + str(i))
                     if message[1] == sender[i]:
                         # Array looks like: [[sender1, message1, message2], [sender2, message1]]
-                        sorted_after_sender[i].append(message)
+                        print("appended message")
+                        for j in range(len(sorted_after_sender)):
+                            if sorted_after_sender[j][0] == message[1]:
+                                sorted_after_sender[j].append(message)
+                        # sorted_after_sender[i].append(message)
                         new_sender = False
                         break
             if new_sender:
                 message_sender = message[1]
                 sorted_after_sender.append([message_sender])
+                print("appended new sender")
                 sorted_after_sender[len(sorted_after_sender) - 1].append(message)
+                print(sorted_after_sender)
             new_sender = True
-
+        print(sorted_after_sender)
         # Print messages received by each sender
         for sender in sorted_after_sender:
             print(str(sender[0]) + " wrote: ")
@@ -364,8 +373,7 @@ class Client:
               which doesnt matter however as IV is sent separately before."""
 
         message_mac = hashlib.sha256(message.encode()).hexdigest()
-        pad = secrets.token_bytes(20)
-        pad = str(int.from_bytes(pad, 'big'))
+        pad = str(int.from_bytes(iv, 'big'))
         message = (message + ';' + message_mac + ';' + pad).encode()
 
         # encrypt message

@@ -213,9 +213,12 @@ class Server:
             if len(file_data) > 3:
                 for i in range(3, len(file_data)):
                     connection.send_encrypted_authenticated(file_data[i])
+                    connection.client_socket.recv(123)
                 connection.send_encrypted_authenticated("end_of_messages")
+                connection.client_socket.recv(123)
             else:
                 connection.send_encrypted_authenticated("No new messages.")
+                connection.client_socket.recv(123)
         with open(f"{username}.txt", "w", encoding='UTF_8') as text_data:
             text_data.write(sensitive_data[0])
         with open(f"{username}.txt", "a", encoding='UTF_8') as text_data:
@@ -302,8 +305,7 @@ class OnConnection:
            -> blocks of incorrect size are of IV and are discarded
               which doesnt matter however as IV is sent separately before."""
         message_mac = hashlib.sha256(message.encode()).hexdigest()
-        pad = secrets.token_bytes(20)
-        pad = str(int.from_bytes(pad, 'big'))
+        pad = str(int.from_bytes(self.iv, 'big'))
         message = (message + ';' + message_mac + ';' + pad).encode()
         # encrypt message
         cipher = Cipher(algorithms.AES(self.symmetric_key), modes.CBC(self.iv))
