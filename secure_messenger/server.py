@@ -25,7 +25,6 @@ class Server:
         self.main_loop()
 
     def client_connect(self, client_server_socket):  # client_Server_Socket: Socket Object;
-        # TODO Symmetric key generation
         """User logs in"""
 
         keys = self.create_symmetric_key(client_server_socket)   # [client_public,  symmetric_key]
@@ -66,10 +65,9 @@ class Server:
             print("Accepted connection from " + str(client_address))
 
     def log_in_request(self, connection):
-        # TODO MAC for yes and no
         """register an account? - This process is automated with client,
-            if client doesnt find local log in data, it creates an account(data_from_client = yes),
-            if it does, it performs a login(data_from_client = no)"""
+            if client doesnt find local log in data, it creates an account,
+            if it does, it performs a login"""
         while True:
             create_an_account = connection.receive_encrypted_authenticated(1024)
             connection.client_socket.send("go".encode())
@@ -114,7 +112,6 @@ class Server:
     def create_account(self, connection, username_from_client):
         """Give Username a random ID and check if ID already exists,
            if it does, create a new one and repeat"""
-        # TODO Check Program privileges
 
         # [available: True/False, username]
         while True:

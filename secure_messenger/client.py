@@ -120,7 +120,6 @@ class Client:
                 username = self.receive_encrypted_authenticated(1024)
                 break
 
-        # TODO Privilege management
         with open("client_login_data.txt", 'a', encoding="UTF_8") as user_login:
             user_login.write(";" + username)
 
