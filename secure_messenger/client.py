@@ -364,7 +364,8 @@ class Client:
               which doesnt matter however as IV is sent separately before."""
 
         message_mac = hashlib.sha256(message.encode()).hexdigest()
-        pad = str(int.from_bytes(iv, 'big'))
+        pad = secrets.token_bytes(20)
+        pad = str(int.from_bytes(pad, 'big'))
         message = (message + ';' + message_mac + ';' + pad).encode()
 
         # encrypt message
