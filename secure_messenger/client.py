@@ -6,9 +6,9 @@ from os import remove
 import re
 import secrets
 import socket
+from sys import exit as sys_exit
 from tinyec import registry
 from tinyec import ec
-from sys import exit as sys_exit
 import rsa
 import cryptography.exceptions
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
