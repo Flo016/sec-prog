@@ -1,3 +1,4 @@
+"""Creates a Server programme for an encrypted end to end messenger"""
 import base64
 import datetime
 import hashlib
