@@ -1,18 +1,18 @@
-"""Creates a Server programme for an encrypted end to end messenger"""
 import base64
 import datetime
 import hashlib
 from random import randrange
-import cryptography.exceptions
-import rsa
 import secrets
 import socket
 import threading
 import time
+from sys import exit as sys_exit
 from tinyec import registry
 from tinyec import ec
-from sys import exit as sys_exit
+import cryptography.exceptions
+import rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 
 class Server:
@@ -84,24 +84,35 @@ class Server:
                     with open(f"{username_from_client}.txt", 'r', encoding='UTF_8') as user:
                         password = user.read().split(';')
 
-                    # hash Password and compare
+                    """
                     connection.client_socket.send("go".encode())
                     hashed_password = hashlib.sha512(
                         (connection.receive_encrypted_authenticated(1500)
                             + password[1]).encode()).hexdigest()
                     for _ in range(6000):
                         hashed_password = hashlib.sha512(str(hashed_password).encode()).hexdigest()
+                    """
 
-                    if password[0] == hashed_password:
+                    kdf = PBKDF2HMAC(
+                        algorithm=hashlib.sha512(),
+                        length=32,
+                        salt=bytes.fromhex(password[1]),
+                        iterations=100000,
+                    )
+                    # derive hashed password and verify if it is valid.
+                    try:
+                        connection.client_socket.send("go".encode())
+                        kdf.verify(bytes.fromhex(hashlib.sha512(
+                            connection.receive_encrypted_authenticated(1500).encode()).hexdigest()),
+                            bytes.fromhex(password[0]))
                         print(username_from_client + " log in successful")
                         connection.send_encrypted_authenticated("login success")
                         login_success_array = [username_from_client, True]  # Log in success
-                    else:
+                    except cryptography.exceptions.InvalidKey:
                         connection.send_encrypted_authenticated(
                             "Wrong Username or Password, please try again")
-                        # Can only be false, if client data has been manipulated.
-                        # therefore we close connection
                         login_success_array = [username_from_client, False]
+
                 except OSError:
                     connection.send_encrypted_authenticated(
                         "Wrong Username or Password, please try again")
@@ -120,22 +131,42 @@ class Server:
             if username_availabe[0]:
                 # file consist of:
                 # ("Password; Salt; [Public_key, Exponent]; [Timestamp, Sender, Message]*")
-                # Store data in file, Salt and hash the password, generate Salt
-                possible_symbols = "#$%&()*+,-./0123456789:<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]" \
-                                   "^_`abcdefghijklmnopqrstuvwxyz{|}~"
-                salt = ''
-                for _ in range(10):
-                    salt = salt + secrets.choice(possible_symbols)
-                connection.client_socket.send("go".encode())   # give go for password
-                hashed_password = hashlib.sha512(
-                    (connection.receive_encrypted_authenticated(1500) + salt).encode()).hexdigest()
+                # receive password, hash password and use key derivation function,
+                # also generate salt.
+                connection.client_socket.send("go".encode())
+                hashed_password = bytes.fromhex(hashlib.sha512(
+                    connection.receive_encrypted_authenticated(1500).encode()).hexdigest())
+                while True:
+                    salt = secrets.token_bytes(16)
+                    # derive
+                    kdf = PBKDF2HMAC(
+                        algorithm=hashlib.sha512(),
+                        length=32,
+                        salt=salt,
+                        iterations=100000,
+                    )
 
-                for _ in range(6000):
-                    hashed_password = hashlib.sha512(str(hashed_password).encode()).hexdigest()
+                    derived_password = hex(
+                        int.from_bytes(kdf.derive(hashed_password), 'big'))[2:]
+                    salt = hex(int.from_bytes(salt, 'big'))[2:]
+                    # check that there are no half bytes (can happen during derivation)
+                    if len(derived_password) % 2 == 0 and len(salt) % 2 == 0:
+                        break
 
+                # check key again
+                kdf = PBKDF2HMAC(
+                    algorithm=hashlib.sha512(),
+                    length=32,
+                    salt=bytes.fromhex(salt),
+                    iterations=100000,
+                )
+                kdf.verify(hashed_password, bytes.fromhex(derived_password))
+                hashed_password = secrets.token_bytes(16)   # overwrite variable
+
+                salt = hex(int.from_bytes(bytes.fromhex(salt), 'big'))[2:]
                 with open(f"{actual_username}.txt", "w", encoding='UTF_8') as login:
                     login.write(
-                        str(hashed_password)
+                        str(derived_password)
                         + ';' + salt
                         + ';' + str([connection.client_public_key.n,
                                      connection.client_public_key.e])
@@ -305,7 +336,7 @@ class OnConnection:
            -> blocks of incorrect size are of IV and are discarded
               which doesnt matter however as IV is sent separately before."""
         message_mac = hashlib.sha256(message.encode()).hexdigest()
-        pad = str(int.from_bytes(self.iv, 'big'))
+        pad = str(int.from_bytes(secrets.token_bytes(16), 'big'))
         message = (message + ';' + message_mac + ';' + pad).encode()
         # encrypt message
         cipher = Cipher(algorithms.AES(self.symmetric_key), modes.CBC(self.iv))

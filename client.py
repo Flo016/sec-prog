@@ -1,6 +1,5 @@
 import socket
-# import rsa
-import secrets  # TODO maybe explain why this library?
+import secrets
 from ast import literal_eval
 
 """Start Client separately from Server"""
@@ -23,7 +22,7 @@ class Client:
 
     def user_login(self):
         """Connect to Server Socket"""
-        self.client_socket.connect(("127.0.0.1", 600))  # TODO use secure socket
+        self.client_socket.connect(("127.0.0.1", 600))
 
         print("connected")
         try:
@@ -63,7 +62,6 @@ class Client:
                     self.client_socket.send("hey".encode())
                     username = self.client_socket.recv(1024).decode()
                     break
-
 
             with open("client_login_data.txt", 'w') as user_login:
 
@@ -130,16 +128,3 @@ class Client:
             for i in range(len(sender)):   # [[message 1], [message 2], ..., [message i]]
                 print("     "+str(sender[i][0] + " - " + str(sender[i][2])))   # timestamp - message
             print("\n")
-
-
-
-
-    """
-    def encrypt_message(self, message):
-         user_message = input("Please write your message :)  :")
-         print("original string: ", user_message)
-         user_message = rsa.encrypt(user_message.encode(), public_key)  # TODO encrypt data
-         print("encrypt string: ", user_message)
-         user_message = rsa.decrypt(user_message, private_key).decode()
-         print("decrypted string: ", user_message)
-    """

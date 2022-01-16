@@ -6,9 +6,9 @@ from os import remove
 import re
 import secrets
 import socket
+from sys import exit as sys_exit
 from tinyec import registry
 from tinyec import ec
-from sys import exit as sys_exit
 import rsa
 import cryptography.exceptions
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -165,7 +165,7 @@ class Client:
 
         key = int(hashlib.sha256(str(key.x).encode()).hexdigest(), 16).to_bytes(32, 'big')
         iv = secrets.token_bytes(16)
-        pad = str(int.from_bytes(iv, 'big'))
+        pad = str(int.from_bytes(secrets.token_bytes(16), 'big'))
 
         message = self.encrypt_message(message, key, iv)
 
@@ -367,7 +367,7 @@ class Client:
               which doesnt matter however as IV is sent separately before."""
 
         message_mac = hashlib.sha256(message.encode()).hexdigest()
-        pad = str(int.from_bytes(iv, 'big'))
+        pad = str(int.from_bytes(secrets.token_bytes(16), 'big'))
         message = (message + ';' + message_mac + ';' + pad).encode()
 
         # encrypt message

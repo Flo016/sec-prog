@@ -1,6 +1,5 @@
 import socket
 import threading
-from random import randrange
 import time
 import datetime
 
@@ -14,14 +13,13 @@ class Server:
         "Wait for connections and handle them"
         self.main_loop()
 
-    def client_connect(self,
-                       client_server_socket):  # client_Server_Socket: Socket Object; array: [Client_IP; Client_Port]
-        # TODO give GO! for user Information
+    # client_Server_Socket: Socket Object; array: [Client_IP; Client_Port]
+    def client_connect(self,client_server_socket):
         """User logs in"""
         login_data = self.log_in_request(client_server_socket)  # [Username;Login Successful/Unsuccessful]
         current_user = login_data[0]
         print(current_user)
-        if login_data[1]:  # TODO Send stored public key
+        if login_data[1]:
             while True:
                 print("stuff successful")
                 command = client_server_socket.recv(1024).decode()
@@ -30,7 +28,6 @@ class Server:
                 elif command == "receive":
                     self.collect_messages(client_server_socket, current_user)
 
-
         else:  # User password false
             client_server_socket.close()
             return
@@ -38,7 +35,7 @@ class Server:
     def main_loop(self):
 
         """ Create Server Socket and listen"""
-        self.server_socket.bind(("127.0.0.1", 600))  # TODO use secure socket
+        self.server_socket.bind(("127.0.0.1", 600))
         print("Server Listening...")
         self.server_socket.listen()
 
@@ -59,7 +56,6 @@ class Server:
             print("Accepted connection from " + str(array[0]) + ":" + str(array[1]))
 
     def log_in_request(self, client_server_socket):
-        # TODO MAC for yes and no
         """register an account? - This process is automated with client, if client doesnt find local log in data
             it creates an account(data_from_client = yes), if it does, it performs a login(data_from_client = no)"""
 
@@ -79,9 +75,6 @@ class Server:
                 try:
                     # file consist of: ("Password; Salt; [Timestamp, Sender, Message]*")
                     login_data = open('{}.txt'.format(username_from_client), 'r')
-
-                    # TODO ask which way you want it to be
-
                     password = login_data.read().split(';')[0]  # read 0th element contained in the file
 
                     if password == password_from_client:
@@ -98,28 +91,9 @@ class Server:
 
     @staticmethod
     def create_account(client_server_socket, username_from_client, password_from_client):
-        # TODO Implement safe passwords with salt (maybe pepper)
-        # TODO Implement public key for RSA Encryption
-        # TODO Check Program privileges
         while True:
             # client_server_socket.send("Public key?")
             # public_key_from_client = client_server_socket.recv(1024).decode()
-
-
-            """Give Username a random ID and check if ID already exists, if it does, create a new one and repeat
-            idArray = []
-            # ID = ID.append(randrange(0, 9))  # TODO ASK IF THIS SHOULD BE A SECURE RANDOM SOURCE
-            for i in range(0, 10000):
-                idArray.append('{:d}'.format(i).zfill(4))  # create array form 0000-9999
-            for idArrayLimit in range(9999, -1, -1):
-                index = randrange(0, idArrayLimit)
-                userID = idArray[index]
-                actualUsername = username_from_client + "#" + userID  # example Username: Lmao#0045
-                try:
-                    open('{}.txt'.format(actualUsername), 'r')
-                    del idArray[:index]
-                    continue
-            """
 
             actual_username = username_from_client
             try:
@@ -160,7 +134,7 @@ class Server:
             user_file.close()
             client_server_socket.send("end message".encode())
         except Exception:
-            print("Username doesn't exist")  # TODO delete this statement
+            print("Username doesn't exist")
 
     @staticmethod
     def collect_messages(client_server_socket, username):
