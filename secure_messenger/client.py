@@ -6,9 +6,9 @@ from os import remove
 import re
 import secrets
 import socket
-from sys import exit as sys_exit
 from tinyec import registry
 from tinyec import ec
+from sys import exit as sys_exit
 import rsa
 import cryptography.exceptions
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -139,7 +139,6 @@ class Client:
                         "(messages can only be 1024 characters long)\n"
                         "Message: ")
         while True:
-            print(len(message))
             if len(message) > 1024:
                 message = input(
                     "Your message was too long, please send a shorter one, "

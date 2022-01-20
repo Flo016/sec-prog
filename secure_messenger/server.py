@@ -3,15 +3,15 @@ import base64
 import datetime
 import hashlib
 from random import randrange
+import cryptography.exceptions
+import rsa
 import secrets
 import socket
 import threading
 import time
-from sys import exit as sys_exit
 from tinyec import registry
 from tinyec import ec
-import cryptography.exceptions
-import rsa
+from sys import exit as sys_exit
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
@@ -153,7 +153,7 @@ class Server:
                     iterations=100000,
                 )
                 kdf.verify(hashed_password, bytes.fromhex(derived_password))
-                hashed_password = secrets.token_bytes(16)   # overwrite variable
+                __hashed_password__ = secrets.token_bytes(16)   # overwrite variable
 
                 salt = hex(int.from_bytes(bytes.fromhex(salt), 'big'))[2:]
                 with open(f"{actual_username}.txt", "w", encoding='UTF_8') as login:
