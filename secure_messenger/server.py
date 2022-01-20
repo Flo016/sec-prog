@@ -85,15 +85,6 @@ class Server:
                     with open(f"{username_from_client}.txt", 'r', encoding='UTF_8') as user:
                         password = user.read().split(';')
 
-                    """
-                    connection.client_socket.send("go".encode())
-                    hashed_password = hashlib.sha512(
-                        (connection.receive_encrypted_authenticated(1500)
-                            + password[1]).encode()).hexdigest()
-                    for _ in range(6000):
-                        hashed_password = hashlib.sha512(str(hashed_password).encode()).hexdigest()
-                    """
-
                     kdf = PBKDF2HMAC(
                         algorithm=hashlib.sha512(),
                         length=32,

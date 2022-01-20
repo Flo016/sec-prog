@@ -67,10 +67,6 @@ class Client:
 
                 user_login.write(username + ";" + password)
 
-                """ public_key, private_key = rsa.newkeys(512) #TODO Secure Private key in safe file
-                user_login.write(public_key+"\n")
-                user_login.write(private_key+"\n")"""
-
     def write_message(self):
         """issue message command, send recipient, send actual message, """
         self.client_socket.send("message".encode())
